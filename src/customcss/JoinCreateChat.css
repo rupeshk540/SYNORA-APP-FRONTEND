@@ -1,0 +1,38 @@
+/* Ambient background glow behind the card.
+   Uses a radial-gradient blob + keyframe animation — not expressible with
+   default Tailwind utility classes without editing the Tailwind config,
+   so it lives here as plain CSS instead. */
+
+.jcc-page {
+  position: relative;
+  overflow: hidden;
+}
+
+.jcc-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 700px;
+  height: 700px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(59, 130, 246, 0.16) 0%,
+    rgba(59, 130, 246, 0.06) 40%,
+    rgba(59, 130, 246, 0) 70%
+  );
+  pointer-events: none;
+  animation: jcc-pulse 6s ease-in-out infinite;
+}
+
+@keyframes jcc-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.08);
+    opacity: 0.85;
+  }
+}
