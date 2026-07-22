@@ -20,3 +20,8 @@ export const getMyRoomsApi = async () => {
     const response = await httpClient.get(`/api/v1/rooms/my-rooms`);
     return response.data;
 };
+
+export const markAsReadApi = async (roomId) => {
+    const response = await httpClient.post(`/api/v1/rooms/${roomId}/read`);
+    return response.data;
+};

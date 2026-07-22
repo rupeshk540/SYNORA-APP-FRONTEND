@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { getMyRoomsApi } from "../services/RoomService";
 import useChatContext from "../context/ChatContext";
 import toast from "react-hot-toast";
+import RoomModal from "../components/RoomModal";
 
 const formatTimeAgo = (isoString) => {
     if (!isoString) return "";
@@ -26,6 +27,13 @@ const DashboardPage = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [menuOpen, setMenuOpen] = useState(false);
+    const [modalOpen, setModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState("join");
+
+    const openModal = (mode) => {
+        setModalMode(mode);
+        setModalOpen(true);
+    };
 
     useEffect(() => {
         (async () => {
@@ -128,10 +136,10 @@ const DashboardPage = () => {
                 </div>
 
                 <div className="flex items-center gap-3 mb-8">
-                    <button onClick={() => navigate("/join")} className="flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 transition-colors">
+                    <button onClick={() => openModal("create")} className="flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 transition-colors">
                         <Plus className="h-4 w-4" /> Create Room
                     </button>
-                    <button onClick={() => navigate("/join")} className="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <button onClick={() => openModal("join")} className="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                         <LogIn className="h-4 w-4" /> Join Room
                     </button>
                 </div>
@@ -177,6 +185,8 @@ const DashboardPage = () => {
                         ))}
                     </div>
                 )}
+
+                <RoomModal isOpen={modalOpen} initialMode={modalMode} onClose={() => setModalOpen(false)} />
             </main>
         </div>
     );
