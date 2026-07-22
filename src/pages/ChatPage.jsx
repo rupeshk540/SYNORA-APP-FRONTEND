@@ -57,19 +57,24 @@ const ChatPage = () => {
     useEffect(()=>{
 
         const connectWebSocket = () => {
-            //SockJs
             const sock = new SockJS(`${baseURL}/chat`);
             const client = Stomp.over(sock);
-            client.connect({},()=>{
 
-                setStompClient(client);
-                toast.success("connected");
-                client.subscribe(`/topic/room/${roomId}`,(messages) => {
-                    const newMessage = JSON.parse(messages.body);
-                    setMessages((prev)=> [...prev,newMessage]);
-                    //rest of the work after success receiving the message
-                });
-            });
+            client.connect(
+                { Authorization: `Bearer ${localStorage.getItem("token")}` },
+                () => {
+                    setStompClient(client);
+                    toast.success("connected");
+                    client.subscribe(`/topic/room/${roomId}`, (messages) => {
+                        const newMessage = JSON.parse(messages.body);
+                        setMessages((prev) => [...prev, newMessage]);
+                    });
+                },
+                (error) => {
+                    toast.error("Connection failed — check your session");
+                    console.error("STOMP connect error:", error);
+                }
+            );
         };
         if(connected){
             connectWebSocket();
