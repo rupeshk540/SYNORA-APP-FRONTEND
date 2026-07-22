@@ -3,7 +3,7 @@ import { MdAttachFile, MdSend } from "react-icons/md";
 import useChatContext from "../context/ChatContext";
 import { useNavigate } from "react-router";
 import SockJS from "sockjs-client";
-import {baseURL} from "../config/AxoisHelper";
+import {baseURL} from "../services/AxiosHelper";
 import { Stomp } from "@stomp/stompjs";
 import toast from "react-hot-toast";
 import { getMessages } from "../services/RoomService";

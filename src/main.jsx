@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { BrowserRouter} from 'react-router'
-import AppRoutes from './config/RoutesConfig.jsx'
+import AppRoutes from './routes/RoutesConfig.jsx'
 import { Toaster } from 'react-hot-toast'
 import { ChatProvider } from './context/ChatContext.jsx'
 

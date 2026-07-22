@@ -1,7 +1,7 @@
 import React from 'react'
 import { Route, Routes } from 'react-router'
 import App from '../App'
-import ChatPage  from '../components/ChatPage'
+import ChatPage  from '../pages/ChatPage'
 
 const AppRoutes = () => {
   return (
