@@ -6,7 +6,7 @@ import SockJS from "sockjs-client";
 import {baseURL} from "../services/AxiosHelper";
 import { Stomp } from "@stomp/stompjs";
 import toast from "react-hot-toast";
-import { getMessages } from "../services/RoomService";
+import { getMessages, markAsReadApi } from "../services/RoomService";
 import { timeAgo } from "../config/helper";
 
 
@@ -28,19 +28,18 @@ const ChatPage = () => {
 
     //page init 
     //message ko load krna hoga
-    useEffect(()=>{
-        async function loadMessages(){
+    useEffect(() => {
+        async function loadMessages() {
             try {
                 const messages = await getMessages(roomId);
                 setMessages(messages);
-            } catch (error) {
-                
-            }
+                markAsReadApi(roomId).catch(() => {}); // best-effort, never blocks the chat UI
+            } catch (error) {}
         }
-        if(connected){
-         loadMessages();
+        if (connected) {
+            loadMessages();
         }
-    },[])
+    }, []);
     
     //scroll up
     useEffect(()=> {
@@ -66,9 +65,29 @@ const ChatPage = () => {
                     setStompClient(client);
                     toast.success("connected");
                     client.subscribe(`/topic/room/${roomId}`, (messages) => {
-                        const newMessage = JSON.parse(messages.body);
-                        setMessages((prev) => [...prev, newMessage]);
+                    const newMessage = JSON.parse(messages.body);
+                    setMessages((prev) => [...prev, newMessage]);
+                    markAsReadApi(roomId).catch(() => {});
+
+                    if (newMessage.sender !== currentUser) {
+                        client.send(`/app/ack/${roomId}`, {}, JSON.stringify({ messageId: newMessage.id }));
+                    }
                     });
+                    client.subscribe(`/topic/room/${roomId}/status`, (statusMsg) => {
+                    const update = JSON.parse(statusMsg.body);
+
+                    if (update.messageId) {
+                        setMessages((prev) => prev.map(m =>
+                            m.id === update.messageId ? { ...m, status: update.status } : m
+                        ));
+                    } else if (update.readUpTo) {
+                        setMessages((prev) => prev.map(m =>
+                            (m.sender === currentUser && new Date(m.timestamp) <= new Date(update.readUpTo))
+                                ? { ...m, status: "SEEN" }
+                                : m
+                        ));
+                    }
+                });
                 },
                 (error) => {
                     toast.error("Connection failed — check your session");
@@ -138,6 +157,9 @@ const ChatPage = () => {
                         <div className="flex flex-col gap-1">
                             <p className="text-sm font-bold">{message.sender}</p>
                             <p>{message.content}</p>
+                            {message.sender === currentUser && (
+                                <DeliveryTicks status={message.status} />
+                            )}
                             <p className="text-xs text-gray-400">{timeAgo(message.timeStamp)}</p>
                         </div>
                     </div>
