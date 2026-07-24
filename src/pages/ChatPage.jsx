@@ -11,6 +11,7 @@ import { getMessages, getMyRoomsApi, markAsReadApi } from "../services/RoomServi
 import { timeAgo } from "../config/helper";
 import DeliveryTicks from "../components/chat/DeliveryTicks";
 import RoomModal from "../components/RoomModal";
+import TypingIndicator from "../components/chat/TypingIndicator";
 
 const AVATAR_COLORS = ["bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-sky-500"];
 const colorForName = (name = "") => {
@@ -23,6 +24,10 @@ const ChatPage = () => {
     const { roomId, currentUser, connected, setConnected, setRoomId } = useChatContext();
     const { logout } = useAuth();
     const navigate = useNavigate();
+    const [typingUsers, setTypingUsers] = useState({});
+    const [onlineUsers, setOnlineUsers] = useState([]);
+    const typingTimeoutRef = useRef(null);
+    const typingClearTimersRef = useRef({});
 
     useEffect(() => {
         if (!connected) navigate("/");
@@ -95,6 +100,33 @@ const ChatPage = () => {
                         ));
                     }
                 });
+
+                client.subscribe(`/topic/room/${roomId}/typing`, (msg) => {
+                const event = JSON.parse(msg.body);
+                if (event.sender === currentUser) return; // ignore our own echoed event
+
+                setTypingUsers((prev) => {
+                    const updated = { ...prev };
+                    event.typing ? (updated[event.sender] = true) : delete updated[event.sender];
+                    return updated;
+                });
+
+                clearTimeout(typingClearTimersRef.current[event.sender]);
+                if (event.typing) {
+                    // safety net: force-clear if a "stop typing" event never arrives (e.g. tab closed)
+                    typingClearTimersRef.current[event.sender] = setTimeout(() => {
+                        setTypingUsers((prev) => {
+                            const updated = { ...prev };
+                            delete updated[event.sender];
+                            return updated;
+                        });
+                    }, 5000);
+                }
+            });
+
+            client.subscribe(`/topic/room/${roomId}/presence`, (msg) => {
+                setOnlineUsers(JSON.parse(msg.body));
+            });
             },
             () => toast.error("Connection failed \u2014 check your session")
         );
@@ -104,12 +136,23 @@ const ChatPage = () => {
         };
     }, [roomId]);
 
-    const sendMessage = () => {
+   const sendMessage = () => {
         if (stompClient && connected && input.trim()) {
-            stompClient.send(`/app/sendMessage/${roomId}`, {}, JSON.stringify({
-                sender: currentUser, content: input, roomId,
-            }));
+            stompClient.send(`/app/sendMessage/${roomId}`, {}, JSON.stringify({ sender: currentUser, content: input, roomId }));
             setInput("");
+            clearTimeout(typingTimeoutRef.current);
+            stompClient.send(`/app/typing/${roomId}`, {}, JSON.stringify({ typing: false }));
+        }
+    };
+
+    const handleInputChange = (e) => {
+        setInput(e.target.value);
+        if (stompClient?.connected) {
+            stompClient.send(`/app/typing/${roomId}`, {}, JSON.stringify({ typing: true }));
+            clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
+                stompClient.send(`/app/typing/${roomId}`, {}, JSON.stringify({ typing: false }));
+            }, 2000);
         }
     };
 
@@ -182,7 +225,7 @@ const ChatPage = () => {
 
             {/* Chat panel */}
             <div className="flex-1 flex flex-col min-w-0">
-                <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 flex items-center justify-between">
+                <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 flex items-center justify-between"> 
                     <div className="flex items-center gap-3">
                         <div className={`h-10 w-10 rounded-full ${colorForName(activeRoom?.name)} flex items-center justify-center text-white text-sm font-semibold`}>
                             {initialsForName(activeRoom?.name)}
@@ -190,12 +233,18 @@ const ChatPage = () => {
                         <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                             {activeRoom?.name || roomId}
                         </h1>
+                        {onlineUsers.length > 0 && (
+                            <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                {onlineUsers.length} online
+                            </span>
+                        )}
                     </div>
                     <button disabled title="Coming soon" className="flex items-center gap-1.5 text-sm text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 cursor-not-allowed">
                         <Sparkles className="h-4 w-4" /> AI Summary
                     </button>
                 </header>
-
+               
                 <main ref={chatBoxRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                     {messages.map((message, index) => {
                         const isOwn = message.sender === currentUser;
@@ -211,6 +260,7 @@ const ChatPage = () => {
                                 }`}>
                                     {!isOwn && <p className="text-xs font-semibold mb-0.5 opacity-70">{message.sender}</p>}
                                     <p className="text-sm">{message.content}</p>
+                                    
                                     <div className={`flex items-center gap-1 mt-1 justify-end text-[10px] ${isOwn ? "text-indigo-200" : "text-slate-400"}`}>
                                         <span>{timeAgo(message.timestamp)}</span>
                                         {isOwn && <DeliveryTicks status={message.status} />}
@@ -220,7 +270,7 @@ const ChatPage = () => {
                         );
                     })}
                 </main>
-
+                     <TypingIndicator typingUsers={typingUsers} />
                 <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4">
                     <div className="flex items-center gap-2">
                         <button className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -228,7 +278,7 @@ const ChatPage = () => {
                         </button>
                         <input
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onChange={handleInputChange}
                             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                             placeholder="Write a message..."
                             className="flex-1 px-4 py-2.5 rounded-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
