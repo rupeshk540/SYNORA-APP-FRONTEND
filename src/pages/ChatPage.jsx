@@ -12,6 +12,7 @@ import { timeAgo } from "../config/helper";
 import DeliveryTicks from "../components/chat/DeliveryTicks";
 import RoomModal from "../components/RoomModal";
 import TypingIndicator from "../components/chat/TypingIndicator";
+import { fixTextApi } from "../services/AiService";
 
 const AVATAR_COLORS = ["bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-sky-500"];
 const colorForName = (name = "") => {
@@ -28,6 +29,7 @@ const ChatPage = () => {
     const [onlineUsers, setOnlineUsers] = useState([]);
     const typingTimeoutRef = useRef(null);
     const typingClearTimersRef = useRef({});
+    const [fixing, setFixing] = useState(false);
 
     useEffect(() => {
         if (!connected) navigate("/");
@@ -135,6 +137,19 @@ const ChatPage = () => {
             if (client && client.connected) client.disconnect();
         };
     }, [roomId]);
+
+    const handleAiFix = async () => {
+        if (!input.trim()) return;
+        setFixing(true);
+        try {
+            const { correctedText } = await fixTextApi(input);
+            setInput(correctedText);
+        } catch {
+            toast.error("AI Fix is unavailable right now");
+        } finally {
+            setFixing(false);
+        }
+    };
 
    const sendMessage = () => {
         if (stompClient && connected && input.trim()) {
@@ -283,8 +298,12 @@ const ChatPage = () => {
                             placeholder="Write a message..."
                             className="flex-1 px-4 py-2.5 rounded-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
-                        <button disabled title="Coming soon" className="hidden sm:flex items-center gap-1 text-xs text-slate-400 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-2 cursor-not-allowed shrink-0">
-                            <Sparkles className="h-3.5 w-3.5" /> AI Fix
+                        <button
+                            onClick={handleAiFix}
+                            disabled={fixing || !input.trim()}
+                            className="hidden sm:flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-full px-3 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 transition-colors"
+                        >
+                            <Sparkles className="h-3.5 w-3.5" /> {fixing ? "Fixing..." : "AI Fix"}
                         </button>
                         <button onClick={sendMessage} className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
                             <Send className="h-4 w-4" />
