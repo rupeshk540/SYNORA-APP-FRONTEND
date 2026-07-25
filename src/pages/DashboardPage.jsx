@@ -20,7 +20,7 @@ const formatTimeAgo = (isoString) => {
 
 const DashboardPage = () => {
     const { user, logout } = useAuth();
-    const { setRoomId, setCurrentUser, setConnected } = useChatContext();
+    const { setRoomId, setCurrentUser, setConnected , setCatchUpSnapshot} = useChatContext();
     const navigate = useNavigate();
 
     const [rooms, setRooms] = useState([]);
@@ -59,6 +59,7 @@ const DashboardPage = () => {
         setRoomId(room.roomId);
         setCurrentUser(user?.displayName);
         setConnected(true);
+        setCatchUpSnapshot({ since: room.lastReadAt, count: room.unreadCount });
         navigate("/chat");
     };
 

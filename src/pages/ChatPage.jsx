@@ -13,6 +13,7 @@ import DeliveryTicks from "../components/chat/DeliveryTicks";
 import RoomModal from "../components/RoomModal";
 import TypingIndicator from "../components/chat/TypingIndicator";
 import { fixTextApi } from "../services/AiService";
+import CatchMeUpPanel from "../components/chat/CatchMeUpPanel";
 
 const AVATAR_COLORS = ["bg-indigo-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-sky-500"];
 const colorForName = (name = "") => {
@@ -22,7 +23,7 @@ const colorForName = (name = "") => {
 const initialsForName = (name = "?") => name.trim().charAt(0).toUpperCase();
 
 const ChatPage = () => {
-    const { roomId, currentUser, connected, setConnected, setRoomId } = useChatContext();
+    const { roomId, currentUser, connected, setConnected, setRoomId , setCatchUpSnapshot } = useChatContext();
     const { logout } = useAuth();
     const navigate = useNavigate();
     const [typingUsers, setTypingUsers] = useState({});
@@ -172,7 +173,11 @@ const ChatPage = () => {
     };
 
     const switchRoom = (newRoomId) => {
-        if (newRoomId !== roomId) setRoomId(newRoomId);
+        if (newRoomId !== roomId) {
+            const target = rooms.find(r => r.roomId === newRoomId);
+            setCatchUpSnapshot(target ? { since: target.lastReadAt, count: target.unreadCount } : null);
+            setRoomId(newRoomId);
+        }
     };
 
     const exitChat = () => {
@@ -259,6 +264,7 @@ const ChatPage = () => {
                         <Sparkles className="h-4 w-4" /> AI Summary
                     </button>
                 </header>
+                <CatchMeUpPanel key={roomId} roomId={roomId} />
                
                 <main ref={chatBoxRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                     {messages.map((message, index) => {

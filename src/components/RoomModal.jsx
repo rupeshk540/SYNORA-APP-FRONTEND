@@ -12,7 +12,7 @@ const RoomModal = ({ isOpen, initialMode = "join", onClose }) => {
   const [roomName, setRoomName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { setRoomId, setCurrentUser, setConnected } = useChatContext();
+  const { setRoomId, setCurrentUser, setConnected,setCatchUpSnapshot } = useChatContext();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -45,6 +45,7 @@ const RoomModal = ({ isOpen, initialMode = "join", onClose }) => {
     setConnected(true);
     onClose();
     navigate("/chat");
+    setCatchUpSnapshot(null);
   };
 
   const handleJoin = async () => {
