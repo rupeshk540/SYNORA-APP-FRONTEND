@@ -171,8 +171,12 @@ const ChatPage = () => {
         try {
             const { correctedText } = await fixTextApi(input);
             setInput(correctedText);
-        } catch {
-            toast.error("AI Fix is unavailable right now");
+        } catch (error) {
+            if (error?.response?.status === 429) {
+                toast.error(error.response.data || "You've hit the AI request limit \u2014 try again shortly");
+            } else {
+                toast.error("AI Fix is unavailable right now");
+            }
         } finally {
             setFixing(false);
         }
