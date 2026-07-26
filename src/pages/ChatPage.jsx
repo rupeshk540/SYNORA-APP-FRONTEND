@@ -7,7 +7,7 @@ import SockJS from "sockjs-client";
 import { baseURL } from "../services/AxiosHelper";
 import { Stomp } from "@stomp/stompjs";
 import toast from "react-hot-toast";
-import { getMessages, getMyRoomsApi, markAsReadApi } from "../services/RoomService";
+import { getMessages, getMessagesSinceApi, getMyRoomsApi, markAsReadApi } from "../services/RoomService";
 import { timeAgo } from "../config/helper";
 import DeliveryTicks from "../components/chat/DeliveryTicks";
 import RoomModal from "../components/RoomModal";
@@ -23,7 +23,7 @@ const colorForName = (name = "") => {
 const initialsForName = (name = "?") => name.trim().charAt(0).toUpperCase();
 
 const ChatPage = () => {
-    const { roomId, currentUser, connected, setConnected, setRoomId , setCatchUpSnapshot } = useChatContext();
+    const { roomId, currentUser, connected, setConnected, setRoomId, setCatchUpSnapshot } = useChatContext();
     const { logout } = useAuth();
     const navigate = useNavigate();
     const [typingUsers, setTypingUsers] = useState({});
@@ -42,7 +42,8 @@ const ChatPage = () => {
     const [stompClient, setStompClient] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
     const chatBoxRef = useRef(null);
-
+    const lastMessageTimeRef = useRef(null);
+    const hasConnectedBeforeRef = useRef(false);
     const activeRoom = useMemo(() => rooms.find(r => r.roomId === roomId), [rooms, roomId]);
 
     // sidebar room list
@@ -57,6 +58,7 @@ const ChatPage = () => {
                 setMessages([]);
                 const data = await getMessages(roomId);
                 setMessages(data);
+                if (data.length > 0) lastMessageTimeRef.current = data[data.length - 1].timestamp;
                 markAsReadApi(roomId).catch(() => {});
             } catch (error) {}
         }
@@ -69,19 +71,43 @@ const ChatPage = () => {
         }
     }, [messages]);
 
-    // open (and cleanly close) the STOMP connection per active room
+    // open (and cleanly close) the STOMP connection per active room, with auto-reconnect + resync
     useEffect(() => {
         if (!connected || !roomId) return;
+        hasConnectedBeforeRef.current = false;
 
-        const sock = new SockJS(`${baseURL}/chat`);
-        const client = Stomp.over(sock);
+        const client = Stomp.over(() => new SockJS(`${baseURL}/chat`));
+        client.reconnect_delay = 5000;
+        client.debug = () => {}; // quiets the verbose default frame logging
 
         client.connect(
             { Authorization: `Bearer ${localStorage.getItem("token")}` },
-            () => {
+            async () => {
                 setStompClient(client);
+
+                if (!hasConnectedBeforeRef.current) {
+                    hasConnectedBeforeRef.current = true;
+                    toast.success("connected");
+                } else if (lastMessageTimeRef.current) {
+                    // reconnected after a drop — fetch anything sent while we were offline
+                    try {
+                        const missed = await getMessagesSinceApi(roomId, lastMessageTimeRef.current);
+                        if (missed.length > 0) {
+                            setMessages((prev) => {
+                                const existingIds = new Set(prev.map(m => m.id));
+                                const newOnes = missed.filter(m => !existingIds.has(m.id));
+                                return [...prev, ...newOnes];
+                            });
+                            toast.success(`Reconnected \u2014 synced ${missed.length} missed message${missed.length === 1 ? "" : "s"}`);
+                        }
+                    } catch {
+                        // resync best-effort; the live subscription below still works either way
+                    }
+                }
+
                 client.subscribe(`/topic/room/${roomId}`, (msg) => {
                     const newMessage = JSON.parse(msg.body);
+                    lastMessageTimeRef.current = newMessage.timestamp;
                     setMessages((prev) => [...prev, newMessage]);
                     markAsReadApi(roomId).catch(() => {});
 
@@ -105,31 +131,31 @@ const ChatPage = () => {
                 });
 
                 client.subscribe(`/topic/room/${roomId}/typing`, (msg) => {
-                const event = JSON.parse(msg.body);
-                if (event.sender === currentUser) return; // ignore our own echoed event
+                    const event = JSON.parse(msg.body);
+                    if (event.sender === currentUser) return; // ignore our own echoed event
 
-                setTypingUsers((prev) => {
-                    const updated = { ...prev };
-                    event.typing ? (updated[event.sender] = true) : delete updated[event.sender];
-                    return updated;
+                    setTypingUsers((prev) => {
+                        const updated = { ...prev };
+                        event.typing ? (updated[event.sender] = true) : delete updated[event.sender];
+                        return updated;
+                    });
+
+                    clearTimeout(typingClearTimersRef.current[event.sender]);
+                    if (event.typing) {
+                        // safety net: force-clear if a "stop typing" event never arrives (e.g. tab closed)
+                        typingClearTimersRef.current[event.sender] = setTimeout(() => {
+                            setTypingUsers((prev) => {
+                                const updated = { ...prev };
+                                delete updated[event.sender];
+                                return updated;
+                            });
+                        }, 5000);
+                    }
                 });
 
-                clearTimeout(typingClearTimersRef.current[event.sender]);
-                if (event.typing) {
-                    // safety net: force-clear if a "stop typing" event never arrives (e.g. tab closed)
-                    typingClearTimersRef.current[event.sender] = setTimeout(() => {
-                        setTypingUsers((prev) => {
-                            const updated = { ...prev };
-                            delete updated[event.sender];
-                            return updated;
-                        });
-                    }, 5000);
-                }
-            });
-
-            client.subscribe(`/topic/room/${roomId}/presence`, (msg) => {
-                setOnlineUsers(JSON.parse(msg.body));
-            });
+                client.subscribe(`/topic/room/${roomId}/presence`, (msg) => {
+                    setOnlineUsers(JSON.parse(msg.body));
+                });
             },
             () => toast.error("Connection failed \u2014 check your session")
         );
@@ -152,7 +178,7 @@ const ChatPage = () => {
         }
     };
 
-   const sendMessage = () => {
+    const sendMessage = () => {
         if (stompClient && connected && input.trim()) {
             stompClient.send(`/app/sendMessage/${roomId}`, {}, JSON.stringify({ sender: currentUser, content: input, roomId }));
             setInput("");
@@ -245,7 +271,7 @@ const ChatPage = () => {
 
             {/* Chat panel */}
             <div className="flex-1 flex flex-col min-w-0">
-                <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 flex items-center justify-between"> 
+                <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className={`h-10 w-10 rounded-full ${colorForName(activeRoom?.name)} flex items-center justify-center text-white text-sm font-semibold`}>
                             {initialsForName(activeRoom?.name)}
@@ -265,7 +291,7 @@ const ChatPage = () => {
                     </button>
                 </header>
                 <CatchMeUpPanel key={roomId} roomId={roomId} />
-               
+
                 <main ref={chatBoxRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                     {messages.map((message, index) => {
                         const isOwn = message.sender === currentUser;
@@ -281,7 +307,7 @@ const ChatPage = () => {
                                 }`}>
                                     {!isOwn && <p className="text-xs font-semibold mb-0.5 opacity-70">{message.sender}</p>}
                                     <p className="text-sm">{message.content}</p>
-                                    
+
                                     <div className={`flex items-center gap-1 mt-1 justify-end text-[10px] ${isOwn ? "text-indigo-200" : "text-slate-400"}`}>
                                         <span>{timeAgo(message.timestamp)}</span>
                                         {isOwn && <DeliveryTicks status={message.status} />}
@@ -291,7 +317,7 @@ const ChatPage = () => {
                         );
                     })}
                 </main>
-                     <TypingIndicator typingUsers={typingUsers} />
+                <TypingIndicator typingUsers={typingUsers} />
                 <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4">
                     <div className="flex items-center gap-2">
                         <button className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">

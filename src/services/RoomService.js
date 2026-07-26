@@ -25,3 +25,8 @@ export const markAsReadApi = async (roomId) => {
     const response = await httpClient.post(`/api/v1/rooms/${roomId}/read`);
     return response.data;
 };
+
+export const getMessagesSinceApi = async (roomId, after) => {
+    const response = await httpClient.get(`/api/v1/rooms/${roomId}/messages/since`, { params: { after } });
+    return response.data;
+};
