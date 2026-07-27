@@ -48,10 +48,16 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    const loginWithGoogle = async (credential) => {
+        const response = await AuthService.googleLogin(credential);
+        persistSession(response);
+        return response;
+    };
+
     const isAuthenticated = !!token;
 
     return (
-        <AuthContext.Provider value={{ user, token, isAuthenticated, loading, login, signup, logout }}>
+        <AuthContext.Provider value={{ user, token, isAuthenticated, loading, login, signup, logout ,loginWithGoogle}}>
             {children}
         </AuthContext.Provider>
     );

@@ -10,3 +10,8 @@ export const login = async ({ email, password }) => {
     const response = await httpClient.post("/auth/login", { email, password });
     return response.data;
 };
+
+export const googleLogin = async (credential) => {
+    const response = await httpClient.post("/auth/google", { credential });
+    return response.data;
+};

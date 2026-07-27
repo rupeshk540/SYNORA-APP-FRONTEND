@@ -3,14 +3,15 @@ import { Link, useNavigate } from "react-router";
 import { Sparkles, Users } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 const LoginPage = () => {
-    const { login } = useAuth();
+    const { login,loginWithGoogle } = useAuth();
     const navigate = useNavigate();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(false); 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -29,6 +30,17 @@ const LoginPage = () => {
             setLoading(false);
         }
     };
+
+    const handleGoogleSuccess = async (credential) => {
+        try {
+            await loginWithGoogle(credential);
+            toast.success("Welcome!");
+            navigate("/");
+        } catch {
+            toast.error("Google sign-in failed");
+        }
+    };
+    
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
@@ -90,13 +102,7 @@ const LoginPage = () => {
                             {loading ? "Logging in..." : "Login"}
                         </button>
 
-                        <button
-                            type="button"
-                            disabled
-                            className="w-full rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-sm font-medium py-2.5 cursor-not-allowed"
-                        >
-                            Continue with Google · Coming Soon
-                        </button>
+                        <GoogleSignInButton onSuccess={handleGoogleSuccess} onError={() => toast.error("Google sign-in failed")} />
                     </form>
 
                     <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">

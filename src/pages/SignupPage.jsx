@@ -3,9 +3,10 @@ import { Link, useNavigate } from "react-router";
 import { Sparkles, Users } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 const SignupPage = () => {
-    const { signup } = useAuth();
+    const { signup,loginWithGoogle } = useAuth();
     const navigate = useNavigate();
 
     const [displayName, setDisplayName] = useState("");
@@ -28,6 +29,16 @@ const SignupPage = () => {
             toast.error(err?.response?.data || "Could not create account");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleGoogleSuccess = async (credential) => {
+        try {
+            await loginWithGoogle(credential);
+            toast.success("Welcome!");
+            navigate("/");
+        } catch {
+            toast.error("Google sign-in failed");
         }
     };
 
@@ -99,6 +110,7 @@ const SignupPage = () => {
                         >
                             {loading ? "Creating account..." : "Sign Up"}
                         </button>
+                        <GoogleSignInButton onSuccess={handleGoogleSuccess} onError={() => toast.error("Google sign-in failed")} />
                     </form>
 
                     <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
