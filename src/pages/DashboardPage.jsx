@@ -335,30 +335,32 @@ const DashboardPage = () => {
 
             <main className="flex-1 p-4 sm:p-6 md:p-8 min-w-0">
                 <div className="mb-6">
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                        <div>
-                            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
-                                Welcome back, {user?.displayName || "there"}
-                            </h1>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                                Your rooms are active and ready for the next conversation.
-                            </p>
-                        </div>
-                        {/* Avatar shown here only on desktop — mobile already has it in the top bar */}
-                        <div className="hidden md:flex h-9 w-9 rounded-full bg-indigo-600 text-white text-sm font-semibold items-center justify-center shrink-0">
-                            {initial}
-                        </div>
-                    </div>
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
+    <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
+            Welcome back, {user?.displayName || "there"}
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Your rooms are active and ready for the next conversation.
+        </p>
+    </div>
 
-                    <div className="relative mt-4 md:mt-3 md:max-w-xs">
-                        <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search rooms"
-                            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                    </div>
+    <div className="flex items-center gap-2">
+        <div className="relative flex-1 md:flex-none">
+            <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search rooms"
+                className="w-full md:w-56 pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+        </div>
+        {/* Avatar shown here only on desktop — mobile already has it in the top bar */}
+        <div className="hidden md:flex h-9 w-9 rounded-full bg-indigo-600 text-white text-sm font-semibold items-center justify-center shrink-0">
+            {initial}
+        </div>
+    </div>
+</div>
                 </div>
 
                 <div className="flex items-center gap-3 mb-8">
